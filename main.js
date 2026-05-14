@@ -1,118 +1,175 @@
-import { setupAudio, sounds } from './js/audio.js';
-import { loadSprites } from './js/sprites.js';
-import { initPlayer, updatePlayer, drawPlayer, player } from './js/player.js';
-import { initInvaders, updateInvaders, drawInvaders, invaders, invaderRows, invaderOffsetTop } from './js/invaders.js';
-import { createBoss, updateBoss, drawBoss, boss, clearBoss } from './js/boss.js';
-import { shoot, updateProjectiles, drawProjectiles, playerProjectiles, enemyProjectiles } from './js/projectiles.js';
-import { checkCollisions, getScore, resetScore, getScorePopups } from './js/collisions.js';
-import { drawUI, drawPauseMenu, drawStartScreen, drawGameOverScreen, drawScorePopups, drawGameOverMenu } from './js/ui.js';
-import { gameState as gameStateModule, setGameState, keys, pauseMenuOptions, selectedPauseOption, handleInput, handlePauseMenuSelection, setupGameLoop, gameOverMenuOptions, selectedGameOverOption } from './js/gameState.js';
+import { setupAudio, sounds }                                         from './js/audio.js';
+import { loadSprites }                                                 from './js/sprites.js';
+import { initPlayer, updatePlayer, drawPlayer, player }               from './js/player.js';
+import { initInvaders, updateInvaders, drawInvaders,
+         invaders, invaderRows }                                       from './js/invaders.js';
+import { createBoss, updateBoss, drawBoss, boss, clearBoss }          from './js/boss.js';
+import { shoot, updateProjectiles, drawProjectiles,
+         playerProjectiles, enemyProjectiles }                         from './js/projectiles.js';
+import { checkCollisions, getScore, resetScore }                       from './js/collisions.js';
+import { drawUI, drawPauseMenu, drawStartScreen,
+         drawGameOverScreen, drawScorePopups }                         from './js/ui.js';
+import { gameState as gameStateModule, setGameState, keys,
+         pauseMenuOptions, selectedPauseOption,
+         handleInput, handlePauseMenuSelection, setupGameLoop,
+         gameOverMenuOptions, selectedGameOverOption }                  from './js/gameState.js';
+import { updatePowerups, drawPowerups, drawNotifications,
+         drawActiveEffectsHUD, drawDarkOverlay,
+         resetPowerups, activeEffects }                                 from './js/powerups.js';
 
-// === Configuración Inicial ===
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// ══════════════════════════════════════════════════════════════
+//  CANVAS RESPONSIVO
+// ══════════════════════════════════════════════════════════════
+const canvas  = document.getElementById('gameCanvas');
+const ctx     = canvas.getContext('2d');
+const BASE_W  = 800;
+const BASE_H  = 600;
 
+function resizeCanvas() {
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    const controlsEl    = document.getElementById('touch-controls');
+    if (controlsEl) controlsEl.style.display = isTouchDevice ? 'flex' : 'none';
+
+    const titleEl   = document.querySelector('h1');
+    const titleH    = titleEl ? titleEl.getBoundingClientRect().height + 8 : 36;
+    const controlsH = isTouchDevice ? (controlsEl?.offsetHeight ?? 160) : 0;
+
+    const availW = window.innerWidth  - 8;
+    const availH = window.innerHeight - titleH - controlsH - 16;
+
+    const scale = Math.min(availW / BASE_W, availH / BASE_H, 1.35);
+    canvas.width  = BASE_W;
+    canvas.height = BASE_H;
+    canvas.style.width  = Math.floor(BASE_W * scale) + 'px';
+    canvas.style.height = Math.floor(BASE_H * scale) + 'px';
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 250));
+
+// ══════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ══════════════════════════════════════════════════════════════
 let level = 1;
 
-// === Inicializar sistemas ===
 setupAudio();
 loadSprites();
-initPlayer();
-initInvaders();
+initPlayer(BASE_W, BASE_H);
+initInvaders(BASE_W);
 resetScore();
+resetPowerups();
 
-// Reproducir la música de inicio tras la primera interacción del usuario
 function enableHomeMusicOnce() {
     if (sounds.home.paused) {
         sounds.home.currentTime = 0;
         sounds.home.loop = true;
-        sounds.home.play();
+        sounds.home.play().catch(() => {});
     }
-    // Elimina el listener después de la primera interacción
-    window.removeEventListener('keydown', enableHomeMusicOnce);
-    window.removeEventListener('mousedown', enableHomeMusicOnce);
+    window.removeEventListener('keydown',    enableHomeMusicOnce);
+    window.removeEventListener('mousedown',  enableHomeMusicOnce);
+    window.removeEventListener('touchstart', enableHomeMusicOnce);
 }
+window.addEventListener('keydown',    enableHomeMusicOnce);
+window.addEventListener('mousedown',  enableHomeMusicOnce);
+window.addEventListener('touchstart', enableHomeMusicOnce);
 
-// Escucha la primera interacción del usuario
-window.addEventListener('keydown', enableHomeMusicOnce);
-window.addEventListener('mousedown', enableHomeMusicOnce);
-
-// Permitir disparar con barra espaciadora cuando el juego está en 'playing'
 document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && gameStateModule === 'playing') {
+        e.preventDefault();
         shoot(player, sounds);
     }
     if (gameStateModule === 'gameOver' && e.code === 'Enter') {
-        if (selectedGameOverOption === 0) {
-            exitGame(); // Cambiado para llamar a exitGame() directamente
-        } else if (selectedGameOverOption === 1) {
-            startGame();
-        }
+        selectedGameOverOption === 0 ? exitGame() : startGame();
     }
 });
 
-// === Funciones de juego ===
+// ══════════════════════════════════════════════════════════════
+//  FUNCIONES DE JUEGO
+// ══════════════════════════════════════════════════════════════
 function startGame() {
     level = 1;
-    initPlayer();
-    initInvaders();
+    initPlayer(BASE_W, BASE_H);
+    initInvaders(BASE_W);
     clearBoss();
     resetScore();
+    resetPowerups();
     playerProjectiles.length = 0;
-    enemyProjectiles.length = 0;
+    enemyProjectiles.length  = 0;
     setGameState('playing');
 }
 
 function advanceLevel() {
     level++;
     clearBoss();
-    initInvaders();
+    initInvaders(BASE_W);
+    resetPowerups();
+    playerProjectiles.length = 0;
+    enemyProjectiles.length  = 0;
 }
 
 function onPlayerDeath() {
     player.lives--;
-    player.x = canvas.width / 2 - player.width / 2;
-    player.y = canvas.height - 70;
-
+    player.x = BASE_W / 2 - player.width / 2;
+    player.y = BASE_H - 70;
     if (player.lives <= 0) {
         sounds.gameover.play();
         setGameState('gameOver');
     }
 }
 
-function onBossDefeated() {
-    advanceLevel();
-}
+function onBossDefeated() { advanceLevel(); }
 
 function exitGame() {
-    alert('Has salido del juego. ¡Gracias por jugar!');
+    alert('¡Gracias por jugar!');
     location.reload();
 }
 
-// === Dibujo y actualización por estado ===
-function drawGame() {
+// Screen shake
+function applyShake() {
+    if (!activeEffects.screen_shake) return;
+    ctx.translate(
+        (Math.random() - 0.5) * 5,
+        (Math.random() - 0.5) * 5
+    );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BUCLE PRINCIPAL
+// ══════════════════════════════════════════════════════════════
+let lastTime = performance.now();
+
+function drawGame(timestamp) {
+    const deltaMs = Math.min(timestamp - lastTime, 50);
+    lastTime = timestamp;
+
+    ctx.save();
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     switch (gameStateModule) {
+
         case 'start':
             if (sounds.home.paused) {
                 sounds.home.currentTime = 0;
                 sounds.home.loop = true;
-                sounds.home.play();
+                sounds.home.play().catch(() => {});
             }
             drawStartScreen(ctx, canvas.width, canvas.height);
             break;
 
         case 'playing':
-            if (!sounds.home.paused) {
-                sounds.home.pause();
-            }
+            if (!sounds.home.paused) sounds.home.pause();
+
+            applyShake();
+
+            // Updates
             updatePlayer(keys, canvas);
             updateProjectiles(canvas.height);
+            updatePowerups(canvas.height, deltaMs);
 
             if (boss) {
-                updateBoss(enemyProjectiles, canvas.width, level, sounds);
+                updateBoss(enemyProjectiles, canvas.width, level, sounds, deltaMs);
             } else {
                 updateInvaders(enemyProjectiles, level, canvas.width, sounds);
             }
@@ -124,33 +181,37 @@ function drawGame() {
                 if (sounds.boss) sounds.boss.play();
             }
 
-            drawPlayer(ctx);
-            drawProjectiles(ctx);
+            // Draws
             drawInvaders(ctx);
             drawBoss(ctx);
+            drawPowerups(ctx);
+            drawProjectiles(ctx);
+            drawPlayer(ctx);
+            drawDarkOverlay(ctx, canvas.width, canvas.height);  // debuff oscuridad (encima de todo)
             drawUI(ctx, level, canvas.width);
             drawScorePopups(ctx);
+            drawActiveEffectsHUD(ctx, canvas.width);
+            drawNotifications(ctx, canvas.width, canvas.height);
             break;
 
         case 'paused':
-            drawPlayer(ctx);
-            drawProjectiles(ctx);
             drawInvaders(ctx);
             drawBoss(ctx);
+            drawPowerups(ctx);
+            drawProjectiles(ctx);
+            drawPlayer(ctx);
             drawUI(ctx, level, canvas.width);
             drawPauseMenu(ctx, canvas.width, canvas.height, pauseMenuOptions, selectedPauseOption);
             break;
 
         case 'gameOver':
-            if (!sounds.home.paused) {
-                sounds.home.pause();
-            }
+            if (!sounds.home.paused) sounds.home.pause();
             drawGameOverScreen(ctx, canvas.width, canvas.height, gameOverMenuOptions, selectedGameOverOption);
             break;
     }
+
+    ctx.restore();
 }
 
-// === Iniciar ciclo principal ===
-handleInput(canvas, startGame, () => handlePauseMenuSelection(startGame, exitGame));
-
+handleInput(canvas, startGame, () => handlePauseMenuSelection(startGame, exitGame), () => shoot(player, sounds));
 setupGameLoop(drawGame);
