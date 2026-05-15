@@ -7,15 +7,25 @@ export let selectedPauseOption = 0;
 export const gameOverMenuOptions = ['Volver al inicio', 'Volver a jugar'];
 export let selectedGameOverOption = 0;
 
-// ── Overlay HTML de pausa ─────────────────────────────────────
-const pauseOverlay = document.getElementById('pause-overlay');
-function showPauseOverlay() { if (pauseOverlay) pauseOverlay.classList.add('visible'); }
-function hidePauseOverlay() { if (pauseOverlay) pauseOverlay.classList.remove('visible'); }
+// ── Overlays HTML ─────────────────────────────────────────────
+const pauseOverlay    = document.getElementById('pause-overlay');
+const gameoverOverlay = document.getElementById('gameover-overlay');
+const gameoverScore   = document.getElementById('gameover-score');
 
-export function setGameState(newState) {
+function showPauseOverlay()    { pauseOverlay?.classList.add('visible'); }
+function hidePauseOverlay()    { pauseOverlay?.classList.remove('visible'); }
+function showGameoverOverlay(score) {
+    if (gameoverScore) gameoverScore.textContent = `Puntuacion: ${score}`;
+    gameoverOverlay?.classList.add('visible');
+}
+function hideGameoverOverlay() { gameoverOverlay?.classList.remove('visible'); }
+
+export function setGameState(newState, score = 0) {
     gameState = newState;
-    if (newState === 'paused') showPauseOverlay();
-    else hidePauseOverlay();
+    if (newState === 'paused')   showPauseOverlay();
+    else                         hidePauseOverlay();
+    if (newState === 'gameOver') showGameoverOverlay(score);
+    else                         hideGameoverOverlay();
 }
 
 export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
@@ -32,9 +42,6 @@ export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
             if (e.code === 'ArrowUp')   selectedPauseOption = (selectedPauseOption - 1 + pauseMenuOptions.length) % pauseMenuOptions.length;
             if (e.code === 'ArrowDown') selectedPauseOption = (selectedPauseOption + 1) % pauseMenuOptions.length;
             if (e.code === 'Enter')     onPauseMenuSelect();
-        } else if (gameState === 'gameOver') {
-            if (e.code === 'ArrowUp')   selectedGameOverOption = (selectedGameOverOption - 1 + gameOverMenuOptions.length) % gameOverMenuOptions.length;
-            if (e.code === 'ArrowDown') selectedGameOverOption = (selectedGameOverOption + 1) % gameOverMenuOptions.length;
         } else if (e.code === 'Enter' && gameState === 'start') {
             startGame();
         }
@@ -46,28 +53,25 @@ export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
         if (gameState === 'start') startGame();
     });
 
-    // ── Botones HTML del overlay de pausa ────────────────────
-    // Funcionan tanto en desktop (click) como en móvil (touchend)
-    function bindPauseBtn(id, optionIndex) {
+    // ── Botones overlay de pausa ─────────────────────────────
+    function bindBtn(id, action) {
         const el = document.getElementById(id);
         if (!el) return;
-        function activate(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            selectedPauseOption = optionIndex;
-            onPauseMenuSelect();
-        }
+        function activate(e) { e.preventDefault(); e.stopPropagation(); action(); }
         el.addEventListener('click',    activate);
         el.addEventListener('touchend', activate, { passive: false });
     }
 
-    bindPauseBtn('pause-continue', 0);
-    bindPauseBtn('pause-restart',  1);
-    bindPauseBtn('pause-exit',     2);
+    bindBtn('pause-continue', () => { selectedPauseOption = 0; onPauseMenuSelect(); });
+    bindBtn('pause-restart',  () => { selectedPauseOption = 1; onPauseMenuSelect(); });
+    bindBtn('pause-exit',     () => { selectedPauseOption = 2; onPauseMenuSelect(); });
+
+    // ── Botones overlay de game over ─────────────────────────
+    bindBtn('gameover-home',  () => { hideGameoverOverlay(); selectedGameOverOption = 0; _gameOverCallbacks.exit?.(); });
+    bindBtn('gameover-retry', () => { hideGameoverOverlay(); selectedGameOverOption = 1; _gameOverCallbacks.retry?.(); });
 
     // ── Touch: D-Pad ─────────────────────────────────────────
-    const dpadBtns = document.querySelectorAll('.dpad-btn');
-    dpadBtns.forEach(btn => {
+    document.querySelectorAll('.dpad-btn').forEach(btn => {
         const key = btn.dataset.key;
         const press   = (e) => { e.preventDefault(); keys[key] = true;  btn.classList.add('pressed'); };
         const release = (e) => { e.preventDefault(); keys[key] = false; btn.classList.remove('pressed'); };
@@ -76,7 +80,7 @@ export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
         btn.addEventListener('touchcancel', release, { passive: false });
     });
 
-    // ── Touch: Botón FIRE ────────────────────────────────────
+    // ── Touch: FIRE ──────────────────────────────────────────
     const btnShoot = document.getElementById('btn-shoot');
     if (btnShoot) {
         btnShoot.addEventListener('touchstart', (e) => {
@@ -91,7 +95,7 @@ export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
         }, { passive: false });
     }
 
-    // ── Touch: Botón PAUSA (abre overlay) ────────────────────
+    // ── Touch: PAUSA ─────────────────────────────────────────
     const btnPause = document.getElementById('btn-pause');
     if (btnPause) {
         function togglePause(e) {
@@ -103,16 +107,21 @@ export function handleInput(canvas, startGame, onPauseMenuSelect, shootFn) {
         btnPause.addEventListener('click',      togglePause);
     }
 
-    // ── Touch: pantalla de inicio / game over ─────────────────
+    // ── Touch: pantalla de inicio ─────────────────────────────
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (gameState === 'start') startGame();
-        else if (gameState === 'gameOver') selectedGameOverOption = 1;
     }, { passive: false });
 }
 
+// Callbacks para los botones de game over (se registran desde main.js)
+const _gameOverCallbacks = { exit: null, retry: null };
+export function registerGameOverCallbacks(exit, retry) {
+    _gameOverCallbacks.exit  = exit;
+    _gameOverCallbacks.retry = retry;
+}
+
 export function setupGameLoop(drawCallback) {
-    let last = performance.now();
     function loop(ts) {
         drawCallback(ts);
         requestAnimationFrame(loop);

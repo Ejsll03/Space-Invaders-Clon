@@ -12,7 +12,8 @@ import { drawUI, drawPauseMenu, drawStartScreen,
 import { gameState as gameStateModule, setGameState, keys,
          pauseMenuOptions, selectedPauseOption,
          handleInput, handlePauseMenuSelection, setupGameLoop,
-         gameOverMenuOptions, selectedGameOverOption }                  from './js/gameState.js';
+         gameOverMenuOptions, selectedGameOverOption,
+         registerGameOverCallbacks }                                    from './js/gameState.js';
 import { updatePowerups, drawPowerups, drawNotifications,
          drawActiveEffectsHUD, drawDarkOverlay,
          resetPowerups, activeEffects }                                 from './js/powerups.js';
@@ -114,7 +115,7 @@ function onPlayerDeath() {
     player.y = BASE_H - 70;
     if (player.lives <= 0) {
         sounds.gameover.play();
-        setGameState('gameOver');
+        setGameState('gameOver', getScore());
     }
 }
 
@@ -214,4 +215,5 @@ function drawGame(timestamp) {
 }
 
 handleInput(canvas, startGame, () => handlePauseMenuSelection(startGame, exitGame), () => shoot(player, sounds));
+registerGameOverCallbacks(exitGame, startGame);
 setupGameLoop(drawGame);
