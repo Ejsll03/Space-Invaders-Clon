@@ -123,3 +123,73 @@ h1 {
     height: 50px;
     font-size: 20px;
 }
+
+/* ── Overlay de pausa táctil ── */
+#pause-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+}
+
+#pause-overlay.visible {
+    display: flex;
+}
+
+#pause-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 40px;
+    background: rgba(0,0,0,0.9);
+    border: 2px solid #3f3;
+    border-radius: 14px;
+    box-shadow: 0 0 30px rgba(0,255,0,0.35);
+    min-width: 220px;
+}
+
+.pause-title {
+    color: #3f3;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(24px, 6vw, 40px);
+    font-weight: bold;
+    letter-spacing: 4px;
+    text-shadow: 0 0 12px #3f3;
+    margin-bottom: 8px;
+}
+
+.pause-btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: rgba(0,255,0,0.08);
+    border: 2px solid rgba(0,255,0,0.45);
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(15px, 4vw, 20px);
+    font-weight: bold;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 0.1s, border-color 0.1s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pause-btn:active {
+    background: rgba(0,255,0,0.28);
+    border-color: #3f3;
+    transform: scale(0.96);
+}
+
+.pause-btn-exit {
+    border-color: rgba(255,60,60,0.45);
+    color: #ff8888;
+}
+
+.pause-btn-exit:active {
+    background: rgba(255,60,60,0.2);
+    border-color: #ff4444;
+}

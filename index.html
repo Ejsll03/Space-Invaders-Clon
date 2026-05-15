@@ -15,6 +15,16 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
+    <!-- Overlay de pausa táctil (solo visible cuando está pausado) -->
+    <div id="pause-overlay">
+        <div id="pause-menu">
+            <div class="pause-title">PAUSA</div>
+            <button class="pause-btn" id="pause-continue">Continuar</button>
+            <button class="pause-btn" id="pause-restart">Reiniciar Nivel</button>
+            <button class="pause-btn pause-btn-exit" id="pause-exit">Salir</button>
+        </div>
+    </div>
+
     <!-- Controles táctiles (visibles solo en dispositivos touch) -->
     <div id="touch-controls">
         <div class="dpad">
